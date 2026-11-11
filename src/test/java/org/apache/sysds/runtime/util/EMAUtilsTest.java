@@ -20,6 +20,7 @@
 package org.apache.sysds.runtime.util;
 
 import org.apache.sysds.runtime.matrix.data.MatrixValue;
+import org.apache.sysds.runtime.util.EMAUtils.Container;
 import org.apache.sysds.test.AutomatedTestBase;
 import org.apache.sysds.test.TestConfiguration;
 import org.junit.Assert;
@@ -30,9 +31,9 @@ import java.util.stream.Collectors;
 import java.util.HashMap;
 
 import static org.apache.sysds.test.TestUtils.readRMatrixFromFS;
-import static  org.apache.sysds.runtime.util.EMAUtils.double_exponential_smoothing;
-import static  org.apache.sysds.runtime.util.EMAUtils.triple_exponential_smoothing;
-import static  org.apache.sysds.runtime.util.EMAUtils.Container;
+import static org.apache.sysds.runtime.util.EMAUtils.double_exponential_smoothing;
+import static org.apache.sysds.runtime.util.EMAUtils.triple_exponential_smoothing;
+import static org.apache.sysds.runtime.util.EMAUtils.Container;
 
 public class EMAUtilsTest extends AutomatedTestBase {
     private static final String TEST_NAME = "exponentialSmoothing";
@@ -47,10 +48,12 @@ public class EMAUtilsTest extends AutomatedTestBase {
             171., 180., 193., 181., 183., 218., 230., 242., 209., 191., 172., 194.,
             196., 196., 236., 235., 229., 243., 264., 272., 237., 211., 180., 201.
     };
+
     @Override
     public void setUp() {
         addTestConfiguration(TEST_NAME,
-                new TestConfiguration(TEST_CLASS_DIR, TEST_NAME, new String[] { "R_double", "R_triple", "R_triple_odd" }));
+                new TestConfiguration(TEST_CLASS_DIR, TEST_NAME,
+                        new String[] { "R_double", "R_triple", "R_triple_odd" }));
     }
 
     private static String toRCsv() {
@@ -61,13 +64,19 @@ public class EMAUtilsTest extends AutomatedTestBase {
 
     @Test
     public void testDoubleExponentialSmoothing() {
-        fullRScriptName = SCRIPT_DIR + TEST_DIR + TEST_NAME + ".R";
-        String resultPath = output("R_double");
+        double alpha = 0.3;
+        double beta = 0.1;
 
-        rCmd = getRCmd("double", resultPath, toRCsv());
+        fullDMLScriptName = SCRIPT_DIR + TEST_DIR + TEST_NAME + ".dml";
+        String dmlResultPath = output("R_double");
+
+        fullRScriptName = SCRIPT_DIR + TEST_DIR + TEST_NAME + ".R";
+        String rResultPath = output("R_double");
+
+        rCmd = getRCmd("double", rResultPath, String.valueOf(alpha), String.valueOf(beta), "FALSE", null, toRCsv());
         runRScript(true);
 
-        HashMap<MatrixValue.CellIndex, Double> rOutput = readRMatrixFromFS(resultPath);
+        HashMap<MatrixValue.CellIndex, Double> rOutput = readRMatrixFromFS(rResultPath);
         Assert.assertFalse("R output should contain values", rOutput.isEmpty());
 
         int numRows = (int) rOutput.keySet().stream().mapToLong(idx -> idx.row).max().orElse(0);
@@ -76,29 +85,31 @@ public class EMAUtilsTest extends AutomatedTestBase {
             rFittedValues[i - 1] = rOutput.get(new MatrixValue.CellIndex(i, 1));
         }
 
+        Container javaFittedValues = double_exponential_smoothing(TS_DATA, alpha, beta);
 
-        Container javaFittedValues = double_exponential_smoothing(TS_DATA, 0.3, 0.1);
-
-        Assert.assertEquals("Array length mismatch", rFittedValues.length, javaFittedValues.values.length-2);
+        Assert.assertEquals("Array length mismatch", rFittedValues.length, javaFittedValues.values.length - 2);
         for (int i = 0; i < rFittedValues.length; i++) {
-            Assert.assertEquals("Mismatch at index " + i, rFittedValues[i], javaFittedValues.values[i+2], REFERENCE_EPS);
+            Assert.assertEquals("Mismatch at index " + i, rFittedValues[i], javaFittedValues.values[i + 2],
+                    REFERENCE_EPS);
         }
     }
 
     @Test
-    public void testTripleExponentialSmoothing(){
+    public void testTripleExponentialSmoothing() {
+        double alpha = 0.3;
+        double beta = 0.1;
+        double gamma = 0.2;
         int freq = 12;
         fullRScriptName = SCRIPT_DIR + TEST_DIR + TEST_NAME + ".R";
         String resultPath = output("R_triple");
 
-        rCmd = getRCmd("triple", resultPath, toRCsv());
+        rCmd = getRCmd("triple", resultPath, String.valueOf(alpha), String.valueOf(beta), String.valueOf(gamma), String.valueOf(freq), toRCsv());
         runRScript(true);
 
         HashMap<MatrixValue.CellIndex, Double> rOutputTriple = readRMatrixFromFS(resultPath);
         Assert.assertFalse(
                 "R output should contain values",
-                rOutputTriple.isEmpty()
-        );
+                rOutputTriple.isEmpty());
 
         int numRows = (int) rOutputTriple.keySet().stream()
                 .mapToLong(idx -> idx.row)
@@ -123,19 +134,21 @@ public class EMAUtilsTest extends AutomatedTestBase {
     }
 
     @Test
-    public void testOddTripleExponentialSmoothing(){
+    public void testOddTripleExponentialSmoothing() {
+        double alpha = 0.3;
+        double beta = 0.1;
+        double gamma = 0.2;
         int freq = 7;
         fullRScriptName = SCRIPT_DIR + TEST_DIR + TEST_NAME + ".R";
         String resultPath = output("R_triple_odd");
 
-        rCmd = getRCmd("odd_triple", resultPath, toRCsv());
+        rCmd = getRCmd("odd_triple", resultPath, String.valueOf(alpha), String.valueOf(beta), String.valueOf(gamma), String.valueOf(freq), toRCsv());
         runRScript(true);
 
         HashMap<MatrixValue.CellIndex, Double> rOutputTriple = readRMatrixFromFS(resultPath);
         Assert.assertFalse(
                 "R output should contain values",
-                rOutputTriple.isEmpty()
-        );
+                rOutputTriple.isEmpty());
 
         int numRows = (int) rOutputTriple.keySet().stream()
                 .mapToLong(idx -> idx.row)

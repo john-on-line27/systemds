@@ -21,15 +21,19 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 
-if (length(args) != 3L) {
-  stop("Expected arguments: <mode> <output_path> <data>")
+if (length(args) != 7L) {
+  stop("Expected arguments: <mode> <output_path> <parameters> <data>")
 }
 
 mode <- args[1]
 output_path <- args[2]
+alpha <- as.numeric(args[3])
+beta  <- as.numeric(args[4])
+gamma <- if (args[5] == "FALSE") FALSE else as.numeric(args[5])
+freq  <- if (args[6] == "NULL" || args[6] == "0") NULL else as.numeric(args[6])
 
 ts_data <- scan(
-  text = args[3],
+  text = args[7],
   what = double(),
   sep = ",",
   quiet = TRUE
@@ -43,47 +47,45 @@ if (length(ts_data) == 0L || any(!is.finite(ts_data))) {
 if (mode == "double") {
   hw_model <- stats::HoltWinters(
     ts_data,
-    alpha=0.3,
-    beta = 0.1,
-    gamma = FALSE)
+    alpha = alpha,
+    beta = beta,
+    gamma = gamma
+  )
   fit_vals <- as.numeric(fitted(hw_model)[, "xhat"])
 
   res_matrix <- matrix(0, nrow = length(fit_vals), ncol = 1)
   res_matrix[, 1] <- fit_vals
-
 } else if (mode == "triple") {
-   ts_obj <- ts(ts_data, frequency = 12)
+  ts_obj <- ts(ts_data, frequency = freq)
 
-   hw_model <- stats::HoltWinters(
-     ts_obj,
-     alpha = 0.3,
-     beta = 0.1,
-     gamma = 0.2,
-     seasonal = "additive"
-   )
+  hw_model <- stats::HoltWinters(
+    ts_obj,
+    alpha = alpha,
+    beta = beta,
+    gamma = gamma,
+    seasonal = "additive"
+  )
 
-   fit_vals <- as.numeric(fitted(hw_model)[, "xhat"])
+  fit_vals <- as.numeric(fitted(hw_model)[, "xhat"])
 
-   res_matrix <- matrix(0, nrow = length(fit_vals), ncol = 1)
-   res_matrix[, 1] <- fit_vals
-
+  res_matrix <- matrix(0, nrow = length(fit_vals), ncol = 1)
+  res_matrix[, 1] <- fit_vals
 } else if (mode == "odd_triple") {
-     ts_obj <- ts(ts_data, frequency = 7)
+  ts_obj <- ts(ts_data, frequency = freq)
 
-     hw_model <- stats::HoltWinters(
-          ts_obj,
-          alpha = 0.3,
-          beta = 0.1,
-          gamma = 0.2,
-          seasonal = "additive"
-        )
+  hw_model <- stats::HoltWinters(
+    ts_obj,
+    alpha = alpha,
+    beta = beta,
+    gamma = gamma,
+    seasonal = "additive"
+  )
 
-     fit_vals <- as.numeric(fitted(hw_model)[, "xhat"])
+  fit_vals <- as.numeric(fitted(hw_model)[, "xhat"])
 
-     res_matrix <- matrix(0, nrow = length(fit_vals), ncol = 1)
-     res_matrix[, 1] <- fit_vals
-
-  } else {
+  res_matrix <- matrix(0, nrow = length(fit_vals), ncol = 1)
+  res_matrix[, 1] <- fit_vals
+} else {
   stop(paste("Unknown smoothing mode:", mode))
 }
 
